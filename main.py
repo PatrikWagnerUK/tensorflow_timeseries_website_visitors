@@ -30,8 +30,8 @@ all_dates = np.array(df['date'])
 # dates_test_array = np.array(test_df['date'])
 
 
-def plot_series(time, series, format="-", start=0, end=None):
-    plt.plot(time[start:end], series[start:end], format)
+def plot_series(time, series, format="-", start=0, end=None, color='blue'):
+    plt.plot(time[start:end], series[start:end], format, color=color)
     plt.xlabel("Time")
     plt.ylabel("Value")
     plt.grid(True)
@@ -55,10 +55,10 @@ naive_forecast = all_visits[split_time - 1:-1]
 # Finding our baseline accuracy with MAE - results in an MAE of 515
 # print(keras.metrics.mean_absolute_error(visits_test, naive_forecast).numpy())
 
-# Data Preparation - creating
+# Data Preparation - creating windowed tf.dataset.Datasets
 dataset = tf.data.Dataset.from_tensor_slices(visits_train)
-dataset = dataset.window(30, shift=1, drop_remainder=True)
-dataset = dataset.flat_map(lambda window: window.batch(30))
+dataset = dataset.window(21, shift=1, drop_remainder=True)
+dataset = dataset.flat_map(lambda window: window.batch(21))
 dataset = dataset.map(lambda window: (window[:-1], window[-1:]))
 dataset = dataset.shuffle(buffer_size=10)
 dataset = dataset.batch(1).prefetch(1)
@@ -67,13 +67,54 @@ dataset = dataset.batch(1).prefetch(1)
 #     print("x = ", x.numpy())
 #     print("y = ", y.numpy())
 
+tf.keras.backend.clear_session()
 model = tf.keras.models.Sequential()
 layer0 = model.add(tf.keras.layers.Lambda(lambda x: tf.expand_dims(x, axis=-1), input_shape=[None]))
-layer1 = model.add(tf.keras.layers.SimpleRNN(30, return_sequences=True))
-layer2 = model.add(tf.keras.layers.SimpleRNN(30))
-layer3 = model.add(tf.keras.layers.Dense(1))
-layer4 = model.add(tf.keras.layers.Lambda(lambda x: x * 100))
+layer1 = model.add(tf.keras.layers.Conv1D(filters=16, kernel_size=5, strides=1, padding='causal', activation='relu'))
+layer2 = model.add(tf.keras.layers.Bidirectional(tf.keras.layers.LSTM(30, return_sequences=True)))
+layer2 = model.add(tf.keras.layers.Bidirectional(tf.keras.layers.LSTM(30)))
+layer4 = model.add(tf.keras.layers.Dense(1))
+layer5 = model.add(tf.keras.layers.Lambda(lambda x: x * 1000))
 
+optimizer = tf.keras.optimizers.Adam(
+    learning_rate=0.0001, beta_1=0.9, beta_2=0.999, epsilon=1e-07, amsgrad=False,
+    name='Adam')
+
+## SGD Optimizer - provided fairly bad results with losses around ~2000
 # model.compile(loss="mae", optimizer=tf.keras.optimizers.SGD(lr=1e-8, momentum=0.9))
-model.compile(loss="mae", optimizer='adam')
-model.fit(dataset, epochs=30, verbose=1)
+
+## Adam Optimizer - significantly better results, losses in the high 100's
+# model.compile(metrics=["mae"], optimizer=optimizer, loss=tf.keras.losses.Huber())
+
+## RMSprop - best optimizer yet - low 700s
+# model.compile(optimizer=tf.keras.optimizers.RMSprop(lr=0.001), loss='mae')
+
+# model.compile(optimizer=tf.keras.optimizers.RMSprop(lr=0.0001), metrics=['mae'], loss=tf.keras.losses.Huber())
+
+# model.fit(dataset, epochs=30, verbose=1)
+
+## PREDS
+
+def get_preds(model, val_data):
+    series = tf.expand_dims(val_data, axis=-1)
+    tf_val_data = tf.data.Dataset.from_tensor_slices(series)
+    tf_val_data = tf_val_data.window(21, shift=1, drop_remainder=False)
+    tf_val_data = tf_val_data.flat_map(lambda x: x.batch(21))
+    tf_val_data = tf_val_data.batch(1).prefetch(1)
+    forecast = model.predict(tf_val_data)
+    forecast = forecast * 10
+    return forecast
+
+
+preds = get_preds(model, visits_test)
+
+# ## PLOTTING
+
+plt.figure(figsize=(10, 6))
+plot_series(dates_test, visits_test)
+plot_series(dates_test, preds, color='red')
+plt.show()
+
+# print(len(dates_test))
+# print(len(visits_test))
+# print(len(preds))
