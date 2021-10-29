@@ -80,6 +80,21 @@ optimizer = tf.keras.optimizers.Adam(
     learning_rate=0.0001, beta_1=0.9, beta_2=0.999, epsilon=1e-07, amsgrad=False,
     name='Adam')
 
+# Model Callbacks
+
+checkpoint_filepath = 'C:/Users/General Assembly/PycharmProjects/visitors_timeseries/model_checkpoint'
+model_checkpoint = tf.keras.callbacks.ModelCheckpoint(
+    filepath=checkpoint_filepath,
+    save_weights_only=True,
+    monitor='mae',
+    mode='min',
+    save_best_only=True
+)
+
+reduce_lr_loss = tf.keras.callbacks.ReduceLROnPlateau(monitor='mae', factor=0.01, patience=5, verbose=1, min_delta=0.001, mode='min')
+
+earlyStopping = tf.keras.callbacks.EarlyStopping(monitor='mae', patience=8, verbose=0, mode='min')
+
 ## SGD Optimizer - provided fairly bad results with losses around ~2000
 # model.compile(loss="mae", optimizer=tf.keras.optimizers.SGD(lr=1e-8, momentum=0.9))
 
@@ -90,8 +105,8 @@ optimizer = tf.keras.optimizers.Adam(
 # model.compile(optimizer=tf.keras.optimizers.RMSprop(lr=0.001), loss='mae')
 
 # model.compile(optimizer=tf.keras.optimizers.RMSprop(lr=0.0001), metrics=['mae'], loss=tf.keras.losses.Huber())
-
-# model.fit(dataset, epochs=30, verbose=1)
+#
+# model.fit(dataset, epochs=50, verbose=1, callbacks=[model_checkpoint, reduce_lr_loss, earlyStopping])
 
 ## PREDS
 
@@ -105,7 +120,7 @@ def get_preds(model, val_data):
     forecast = forecast * 10
     return forecast
 
-
+tf.keras.backend.clear_session()
 preds = get_preds(model, visits_test)
 
 # ## PLOTTING
