@@ -76,10 +76,6 @@ layer2 = model.add(tf.keras.layers.Bidirectional(tf.keras.layers.LSTM(30)))
 layer4 = model.add(tf.keras.layers.Dense(1))
 layer5 = model.add(tf.keras.layers.Lambda(lambda x: x * 1000))
 
-optimizer = tf.keras.optimizers.Adam(
-    learning_rate=0.0001, beta_1=0.9, beta_2=0.999, epsilon=1e-07, amsgrad=False,
-    name='Adam')
-
 # Model Callbacks
 
 checkpoint_filepath = 'C:/Users/General Assembly/PycharmProjects/visitors_timeseries/model_checkpoint'
@@ -91,10 +87,6 @@ model_checkpoint = tf.keras.callbacks.ModelCheckpoint(
     save_best_only=True
 )
 
-reduce_lr_loss = tf.keras.callbacks.ReduceLROnPlateau(monitor='mae', factor=0.01, patience=5, verbose=1, min_delta=0.001, mode='min')
-
-earlyStopping = tf.keras.callbacks.EarlyStopping(monitor='mae', patience=8, verbose=0, mode='min')
-
 ## SGD Optimizer - provided fairly bad results with losses around ~2000
 # model.compile(loss="mae", optimizer=tf.keras.optimizers.SGD(lr=1e-8, momentum=0.9))
 
@@ -104,11 +96,24 @@ earlyStopping = tf.keras.callbacks.EarlyStopping(monitor='mae', patience=8, verb
 ## RMSprop - best optimizer yet - low 700s
 # model.compile(optimizer=tf.keras.optimizers.RMSprop(lr=0.001), loss='mae')
 
-# model.compile(optimizer=tf.keras.optimizers.RMSprop(lr=0.0001), metrics=['mae'], loss=tf.keras.losses.Huber())
-#
-# model.fit(dataset, epochs=50, verbose=1, callbacks=[model_checkpoint, reduce_lr_loss, earlyStopping])
+# optimizer = tf.keras.optimizers.Adam(
+#     learning_rate=0.0001, beta_1=0.9, beta_2=0.999, epsilon=1e-07, amsgrad=False,
+#     name='Adam')
 
-## PREDS
+reduce_lr_loss = tf.keras.callbacks.ReduceLROnPlateau(monitor='mae', factor=0.0001, patience=6, verbose=1, min_delta=0.001, mode='min')
+
+earlyStopping = tf.keras.callbacks.EarlyStopping(monitor='mae', patience=10, verbose=0, mode='min')
+
+model.compile(optimizer=tf.keras.optimizers.RMSprop(lr=0.0001), metrics=['mae'],
+              loss=tf.keras.losses.MeanAbsolutePercentageError())
+
+model.fit(dataset, epochs=100, verbose=1, callbacks=[model_checkpoint, reduce_lr_loss, earlyStopping])
+
+# Load Saved Model
+model.load_weights(checkpoint_filepath)
+
+
+# PREDS
 
 def get_preds(model, val_data):
     series = tf.expand_dims(val_data, axis=-1)
@@ -117,19 +122,18 @@ def get_preds(model, val_data):
     tf_val_data = tf_val_data.flat_map(lambda x: x.batch(21))
     tf_val_data = tf_val_data.batch(1).prefetch(1)
     forecast = model.predict(tf_val_data)
-    forecast = forecast * 10
+    # forecast = forecast * 10
+    forecast = np.abs(forecast)
     return forecast
 
-tf.keras.backend.clear_session()
+# # tf.keras.backend.clear_session()
 preds = get_preds(model, visits_test)
+# print(preds[:10])
+# print(visits_test[:10])
 
 # ## PLOTTING
 
 plt.figure(figsize=(10, 6))
-plot_series(dates_test, visits_test)
+plot_series(all_dates, all_visits)
 plot_series(dates_test, preds, color='red')
 plt.show()
-
-# print(len(dates_test))
-# print(len(visits_test))
-# print(len(preds))
