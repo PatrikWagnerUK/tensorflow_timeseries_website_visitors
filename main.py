@@ -47,7 +47,7 @@ dates_test = all_dates[split_time:]
 naive_forecast = all_visits[split_time - 1:-1]
 
 # Display plot of naive forecast
-# plt.figure(figsize=(10, 6))
+# plt.figure(figsize=(15, 6))
 # plot_series(dates_test, visits_test, start=0, end=150)
 # plot_series(dates_test, naive_forecast, start=1, end=151)
 # plt.show()
