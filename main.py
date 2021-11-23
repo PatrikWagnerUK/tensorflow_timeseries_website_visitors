@@ -88,7 +88,7 @@ model_checkpoint = tf.keras.callbacks.ModelCheckpoint(
 )
 
 ## SGD Optimizer - provided fairly bad results with losses around ~2000
-# model.compile(loss="mae", optimizer=tf.keras.optimizers.SGD(lr=1e-8, momentum=0.9))
+# model.compile(loss="mae", optimizer=tf.keras.optimizers.SGD(lr=1e-8, momentum=0.8))
 
 ## Adam Optimizer - significantly better results, losses in the high 100's
 # model.compile(metrics=["mae"], optimizer=optimizer, loss=tf.keras.losses.Huber())
