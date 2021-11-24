@@ -113,7 +113,7 @@ model.fit(dataset, epochs=100, verbose=1, callbacks=[model_checkpoint, reduce_lr
 model.load_weights(checkpoint_filepath)
 
 
-# PREDS
+# Predictions
 
 def get_preds(model, val_data):
     series = tf.expand_dims(val_data, axis=-1)
